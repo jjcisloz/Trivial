@@ -1,0 +1,78 @@
+name: Compilar APK
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Preparar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Preparar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Instalar dependencias
+        run: npm install --no-audit --no-fund
+
+      - name: Crear el proyecto Android
+        run: npx cap add android
+
+      - name: Icono y pantalla de carga
+        continue-on-error: true
+        run: npx --yes @capacitor/assets@3.0.5 generate --android
+
+      - name: Ajustes de Android (vertical, vibración y versión)
+        run: |
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          sed -i 's#<activity$#<activity android:screenOrientation="portrait"#' $MANIFEST
+          sed -i 's#</manifest>#    <uses-permission android:name="android.permission.VIBRATE" />\n</manifest>#' $MANIFEST
+          sed -i "s/versionCode 1$/versionCode ${{ github.run_number }}/; s/versionName \"1.0\"/versionName \"1.0.${{ github.run_number }}\"/" android/app/build.gradle
+          npx cap sync android
+
+      - name: Usar siempre la misma firma (para poder actualizar sin desinstalar)
+        run: |
+          if [ -f android-keystore/debug.keystore ]; then
+            mkdir -p ~/.android
+            cp android-keystore/debug.keystore ~/.android/debug.keystore
+          else
+            echo "No está android-keystore/debug.keystore: se usará una firma nueva"
+          fi
+
+      - name: Compilar
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Preparar el archivo
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk Quesitos.apk
+
+      - name: Guardar el APK en la ejecución
+        uses: actions/upload-artifact@v4
+        with:
+          name: Quesitos-apk
+          path: Quesitos.apk
+
+      - name: Publicar en Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Quesitos 1.0.${{ github.run_number }}
+          body: |
+            Descarga **Quesitos.apk** desde el móvil y ábrelo para instalarlo.
+            Si Android lo pide, permite instalar apps de esta fuente.
+          files: Quesitos.apk

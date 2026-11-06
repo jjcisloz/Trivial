@@ -1,0 +1,23 @@
+[
+  {
+    "categoria": "geografia",
+    "dificultad": 1,
+    "pregunta": "¿Cuál es la capital de Francia?",
+    "respuesta": "París",
+    "incorrectas": ["Lyon", "Marsella", "Burdeos"]
+  },
+  {
+    "categoria": "espectaculos",
+    "dificultad": 2,
+    "pregunta": "¿Qué director rodó «Lo imposible», sobre el tsunami de 2004?",
+    "respuesta": "J. A. Bayona",
+    "incorrectas": ["Alejandro Amenábar", "Daniel Monzón", "Rodrigo Sorogoyen"]
+  },
+  {
+    "categoria": "deportes",
+    "dificultad": 3,
+    "pregunta": "¿En qué año ganó España su primera Copa del Mundo de baloncesto?",
+    "respuesta": "2006",
+    "incorrectas": ["2019", "2002", "1984"]
+  }
+]

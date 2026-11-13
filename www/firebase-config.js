@@ -4,9 +4,9 @@
   Estos datos no son secretos: lo que protege tu base de datos son sus reglas.
 */
 window.FIREBASE_CONFIG = {
-  apiKey: "PEGA_AQUI",
-  authDomain: "PEGA_AQUI",
-  databaseURL: "PEGA_AQUI",
-  projectId: "PEGA_AQUI",
-  appId: "PEGA_AQUI"
+  apiKey: "AIzaSyDosQhwbbaQZy95exxUEA4Z_KPlPHwCTdE",
+  authDomain: "quesitos-39439.firebaseapp.com",
+  databaseURL: "https://quesitos-39439-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "quesitos-39439",
+  appId: "1:480174924203:web:6ad67b87147bbff782b2ee"
 };

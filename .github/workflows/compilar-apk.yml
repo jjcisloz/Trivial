@@ -23,7 +23,7 @@ jobs:
           find . -not -path "./.git*" -not -path "*/node_modules*" -not -path "*/vendor/*" -not -path "*/icons/*" -not -path "*/assets/*" | sort | head -150
           if [ ! -f package.json ]; then
             FOUND=$(find . -name package.json -not -path "*/node_modules/*" | head -n 1 || true)
-            if [ -n "$FOUND" ]; then cp -r "$(dirname "$FOUND")"/. .; fi
+            if [ -n "$FOUND" ]; then cp -rn "$(dirname "$FOUND")"/. .; fi
           fi
           if [ ! -f package.json ]; then echo "::error::Falta package.json. Sube todos los archivos del zip."; exit 1; fi
           BEST=""
@@ -139,7 +139,7 @@ jobs:
           find . -not -path "./.git*" -not -path "*/node_modules*" -not -path "*/vendor/*" -not -path "*/icons/*" -not -path "*/assets/*" | sort | head -150
           if [ ! -f package.json ]; then
             FOUND=$(find . -name package.json -not -path "*/node_modules/*" | head -n 1 || true)
-            if [ -n "$FOUND" ]; then cp -r "$(dirname "$FOUND")"/. .; fi
+            if [ -n "$FOUND" ]; then cp -rn "$(dirname "$FOUND")"/. .; fi
           fi
           if [ ! -f package.json ]; then echo "::error::Falta package.json. Sube todos los archivos del zip."; exit 1; fi
           BEST=""

@@ -1,4 +1,4 @@
-name: Compilar APK
+name: Compilar APK y publicar web
 
 on:
   push:
@@ -6,27 +6,60 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   apk:
+    name: APK para Android
     runs-on: ubuntu-latest
     steps:
       - name: Descargar el código
         uses: actions/checkout@v4
 
-      - name: Buscar el proyecto (por si está dentro de una subcarpeta)
+      - name: Ordenar el proyecto (encuentra los archivos aunque estén en otra carpeta)
         run: |
+          echo "Archivos del repositorio:"
+          find . -not -path "./.git*" -not -path "*/node_modules*" -not -path "*/vendor/*" -not -path "*/icons/*" -not -path "*/assets/*" | sort | head -150
           if [ ! -f package.json ]; then
-            FOUND=$(find . -name package.json -not -path "*/node_modules/*" | head -n 1)
-            if [ -z "$FOUND" ]; then
-              echo "::error::No encuentro package.json en el repositorio. Sube todos los archivos del zip."
-              exit 1
-            fi
-            DIR=$(dirname "$FOUND")
-            echo "El proyecto está en $DIR: lo traigo a la raíz"
-            cp -r "$DIR"/. .
+            FOUND=$(find . -name package.json -not -path "*/node_modules/*" | head -n 1 || true)
+            if [ -n "$FOUND" ]; then cp -r "$(dirname "$FOUND")"/. .; fi
           fi
-          ls -la
+          if [ ! -f package.json ]; then echo "::error::Falta package.json. Sube todos los archivos del zip."; exit 1; fi
+          BEST=""
+          while IFS= read -r f; do
+            d=$(dirname "$f")
+            if [ ! -f "$d/index.html" ]; then continue; fi
+            if [ -z "$BEST" ]; then BEST="$d"; fi
+            if grep -q quickMatch "$d/online.js" 2>/dev/null; then
+              if ! grep -q quickMatch "$BEST/online.js" 2>/dev/null || [ "$d" = "./www" ]; then BEST="$d"; fi
+            fi
+          done < <(find . -name app.js -not -path "*/node_modules/*" | sort)
+          if [ -z "$BEST" ]; then echo "::error::No encuentro los archivos del juego (index.html y app.js). Sube la carpeta www del zip."; exit 1; fi
+          if [ "$BEST" != "./www" ]; then
+            echo "Uso los archivos del juego que hay en: $BEST"
+            rm -rf /tmp/web && mkdir -p /tmp/web
+            for x in index.html styles.css app.js questions.js online.js firebase-config.js web-url.js manifest.webmanifest sw.js vendor icons; do
+              if [ -e "$BEST/$x" ]; then cp -r "$BEST/$x" /tmp/web/; fi
+            done
+            rm -rf www && mkdir www && cp -r /tmp/web/. www/
+          fi
+          if [ ! -f www/firebase-config.js ] || grep -q PEGA_AQUI www/firebase-config.js; then
+            GOOD=""
+            while IFS= read -r f; do
+              if ! grep -q PEGA_AQUI "$f"; then GOOD="$f"; fi
+            done < <(find . -name firebase-config.js -not -path "*/node_modules/*" -not -path "./www/*")
+            if [ -n "$GOOD" ]; then echo "Uso la configuración de Firebase de $GOOD"; cp "$GOOD" www/firebase-config.js; fi
+          fi
+          if [ ! -f www/firebase-config.js ]; then echo "window.FIREBASE_CONFIG = null;" > www/firebase-config.js; fi
+          if [ ! -f www/web-url.js ]; then echo "window.QUESITOS_WEB = '';" > www/web-url.js; fi
+          for x in styles.css questions.js online.js vendor sw.js manifest.webmanifest icons; do
+            if [ ! -e "www/$x" ]; then echo "::warning::Falta www/$x (súbelo desde la carpeta www del zip)"; fi
+          done
+          echo "Carpeta www lista:"; ls www
+
+      - name: Dirección de la web para las invitaciones
+        run: echo "window.QUESITOS_WEB = 'https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/';" > www/web-url.js
 
       - name: Preparar Node
         uses: actions/setup-node@v4
@@ -62,8 +95,6 @@ jobs:
           if [ -f android-keystore/debug.keystore ]; then
             mkdir -p ~/.android
             cp android-keystore/debug.keystore ~/.android/debug.keystore
-          else
-            echo "No está android-keystore/debug.keystore: se usará una firma nueva"
           fi
 
       - name: Compilar
@@ -87,6 +118,75 @@ jobs:
           tag_name: v1.0.${{ github.run_number }}
           name: Quesitos 1.0.${{ github.run_number }}
           body: |
-            Descarga **Quesitos.apk** desde el móvil y ábrelo para instalarlo.
-            Si Android lo pide, permite instalar apps de esta fuente.
+            Android: descarga **Quesitos.apk** desde el móvil y ábrelo para instalarlo.
+            iPhone: abre https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/ en Safari y pulsa Compartir > «Añadir a pantalla de inicio».
           files: Quesitos.apk
+
+  web:
+    name: Web para iPhone (y cualquier móvil)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Ordenar el proyecto (encuentra los archivos aunque estén en otra carpeta)
+        run: |
+          echo "Archivos del repositorio:"
+          find . -not -path "./.git*" -not -path "*/node_modules*" -not -path "*/vendor/*" -not -path "*/icons/*" -not -path "*/assets/*" | sort | head -150
+          if [ ! -f package.json ]; then
+            FOUND=$(find . -name package.json -not -path "*/node_modules/*" | head -n 1 || true)
+            if [ -n "$FOUND" ]; then cp -r "$(dirname "$FOUND")"/. .; fi
+          fi
+          if [ ! -f package.json ]; then echo "::error::Falta package.json. Sube todos los archivos del zip."; exit 1; fi
+          BEST=""
+          while IFS= read -r f; do
+            d=$(dirname "$f")
+            if [ ! -f "$d/index.html" ]; then continue; fi
+            if [ -z "$BEST" ]; then BEST="$d"; fi
+            if grep -q quickMatch "$d/online.js" 2>/dev/null; then
+              if ! grep -q quickMatch "$BEST/online.js" 2>/dev/null || [ "$d" = "./www" ]; then BEST="$d"; fi
+            fi
+          done < <(find . -name app.js -not -path "*/node_modules/*" | sort)
+          if [ -z "$BEST" ]; then echo "::error::No encuentro los archivos del juego (index.html y app.js). Sube la carpeta www del zip."; exit 1; fi
+          if [ "$BEST" != "./www" ]; then
+            echo "Uso los archivos del juego que hay en: $BEST"
+            rm -rf /tmp/web && mkdir -p /tmp/web
+            for x in index.html styles.css app.js questions.js online.js firebase-config.js web-url.js manifest.webmanifest sw.js vendor icons; do
+              if [ -e "$BEST/$x" ]; then cp -r "$BEST/$x" /tmp/web/; fi
+            done
+            rm -rf www && mkdir www && cp -r /tmp/web/. www/
+          fi
+          if [ ! -f www/firebase-config.js ] || grep -q PEGA_AQUI www/firebase-config.js; then
+            GOOD=""
+            while IFS= read -r f; do
+              if ! grep -q PEGA_AQUI "$f"; then GOOD="$f"; fi
+            done < <(find . -name firebase-config.js -not -path "*/node_modules/*" -not -path "./www/*")
+            if [ -n "$GOOD" ]; then echo "Uso la configuración de Firebase de $GOOD"; cp "$GOOD" www/firebase-config.js; fi
+          fi
+          if [ ! -f www/firebase-config.js ]; then echo "window.FIREBASE_CONFIG = null;" > www/firebase-config.js; fi
+          if [ ! -f www/web-url.js ]; then echo "window.QUESITOS_WEB = '';" > www/web-url.js; fi
+          for x in styles.css questions.js online.js vendor sw.js manifest.webmanifest icons; do
+            if [ ! -e "www/$x" ]; then echo "::warning::Falta www/$x (súbelo desde la carpeta www del zip)"; fi
+          done
+          echo "Carpeta www lista:"; ls www
+
+      - name: Preparar la web
+        run: |
+          echo "window.QUESITOS_WEB = 'https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/';" > www/web-url.js
+          if [ -f www/sw.js ]; then sed -i "s/quesitos-v1/quesitos-${{ github.run_number }}/" www/sw.js; fi
+
+      - name: Preparar GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Subir la web
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: www
+
+      - name: Publicar la web
+        id: deploy
+        uses: actions/deploy-pages@v4

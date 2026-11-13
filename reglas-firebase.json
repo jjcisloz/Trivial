@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "salas": {
+      "$sala": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "publicas": {
+      ".read": "auth != null",
+      "$sala": {
+        ".write": "auth != null"
+      }
+    }
+  }
+}

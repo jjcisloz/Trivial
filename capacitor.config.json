@@ -1,0 +1,8 @@
+{
+  "appId": "com.quesitos.trivial",
+  "appName": "Quesitos",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#141B40"
+  }
+}
